@@ -1,0 +1,23 @@
+# The image of the language for project
+language: php
+# The versions of the language to test against
+php:
+  - 7.2
+  - 7.3
+
+sudo: false
+# Helps to speed up setup
+cache:
+  directories:
+    - $HOME/.composer/cache
+# Updates composer before installing project
+before_install:
+  - composer self-update
+# Install all the components needed to run project
+install:
+  - composer install --no-interaction --ansi
+# Run the test script
+script: vendor/bin/phpunit
+# Send email notifications
+notifications:
+  email: false
