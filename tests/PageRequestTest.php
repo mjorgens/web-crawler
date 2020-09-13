@@ -14,6 +14,11 @@
 namespace Tests;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7\Uri;
 use Mjorgens\Crawler\PageRequest\PageRequest;
 use PHPUnit\Framework\TestCase;
@@ -35,6 +40,7 @@ class PageRequestTest extends TestCase
     protected $url;
     protected $badUrl;
     protected $client;
+    protected $mock;
 
     /**
      * SetUp method of test
@@ -44,58 +50,11 @@ class PageRequestTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->client = new Client(['timeout' => 2.0]);
-        $this->html = <<<'HTML'
-<!doctype html>
-<html>
-<head>
-    <title>Example Domain</title>
-
-    <meta charset="utf-8" />
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style type="text/css">
-    body {
-        background-color: #f0f0f2;
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-        
-    }
-    div {
-        width: 600px;
-        margin: 5em auto;
-        padding: 2em;
-        background-color: #fdfdff;
-        border-radius: 0.5em;
-        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);
-    }
-    a:link, a:visited {
-        color: #38488f;
-        text-decoration: none;
-    }
-    @media (max-width: 700px) {
-        div {
-            margin: 0 auto;
-            width: auto;
-        }
-    }
-    </style>    
-</head>
-
-<body>
-<div>
-    <h1>Example Domain</h1>
-    <p>This domain is for use in illustrative examples in documents. You may use this
-    domain in literature without prior coordination or asking for permission.</p>
-    <p><a href="https://www.iana.org/domains/example">More information...</a></p>
-</div>
-</body>
-</html>
-
-HTML;
-        $this->url = 'http://example.com';
-        $this->badUrl = 'http://puddy.com';
+        $this->mock = new MockHandler();
+        $this->client = new Client(['handler' => $this->mock,]);
+        $this->html = '<html><div>Test</div></html>';
+        $this->url = 'http://goodurl.com';
+        $this->badUrl = 'http://badurl.com';
     }
 
     /**
@@ -105,18 +64,33 @@ HTML;
      */
     public function testGetPageGoodUrl()
     {
+        $this->mock->append(new Response(200, [], $this->html));
+
         $page = PageRequest::getPage($this->client, new Uri($this->url));
         $this->assertSame($this->html, $page->html);
         $this->assertSame($this->url, $page->url);
     }
 
     /**
-     * Test getPage() for bad url
+     * Test getPage() for bad url with 400 level error
      *
      * @return void
      */
-    public function testGetPageBadUrl()
+    public function testGetPageBadUrl400()
     {
+        $this->mock->append(new ClientException('Not Found', new Request('GET', $this->badUrl)));
+        $page = PageRequest::getPage($this->client, new Uri($this->badUrl));
+        $this->assertNull($page);
+    }
+
+    /**
+     * Test getPage() for bad url with 500level error
+     *
+     * @return void
+     */
+    public function testGetPageBadUrl500()
+    {
+        $this->mock->append(new ServerException('Gateway Timeout', new Request('GET', $this->badUrl)));
         $page = PageRequest::getPage($this->client, new Uri($this->badUrl));
         $this->assertNull($page);
     }

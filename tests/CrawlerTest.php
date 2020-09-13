@@ -14,6 +14,9 @@
 namespace Tests;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7\Uri;
 use Mjorgens\Crawler\CrawledRepository\CrawledMemoryRepository;
 use Mjorgens\Crawler\CrawledRepository\CrawledRepositoryInterface;
@@ -37,6 +40,8 @@ class CrawlerTest extends TestCase
 
     protected $crawler;
     protected $html;
+    protected $html2;
+    protected $client;
 
     /**
      * SetUp method of test
@@ -48,54 +53,25 @@ class CrawlerTest extends TestCase
         parent::setUp();
         $this->crawler = new Crawler();
         $this->html = <<<'HTML'
-<!doctype html>
+<!DOCTYPE html>
 <html>
-<head>
-    <title>Example Domain</title>
-
-    <meta charset="utf-8" />
-    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style type="text/css">
-    body {
-        background-color: #f0f0f2;
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
-        
-    }
-    div {
-        width: 600px;
-        margin: 5em auto;
-        padding: 2em;
-        background-color: #fdfdff;
-        border-radius: 0.5em;
-        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);
-    }
-    a:link, a:visited {
-        color: #38488f;
-        text-decoration: none;
-    }
-    @media (max-width: 700px) {
-        div {
-            margin: 0 auto;
-            width: auto;
-        }
-    }
-    </style>    
-</head>
-
-<body>
-<div>
-    <h1>Example Domain</h1>
-    <p>This domain is for use in illustrative examples in documents. You may use this
-    domain in literature without prior coordination or asking for permission.</p>
-    <p><a href="https://www.iana.org/domains/example">More information...</a></p>
-</div>
-</body>
+    <body>
+        <p class="message">Hello World!</p>
+        <p>Hello Crawler!</p>
+        <a href="https://example1.com/">Test</a>
+        <a href="https://example2.com/">Test</a>
+    </body>
 </html>
-
 HTML;
+        $this->html2 = '<html><div>Test</div></html>';
+
+        $mock = new MockHandler([
+            new Response(200, [], $this->html),
+            new Response(200, [], $this->html2),
+            new Response(200, [], $this->html2),
+        ]);
+        $handlerStack = HandlerStack::create($mock);
+        $this->client = new Client(['handler' => $handlerStack]);
     }
 
     /**
@@ -173,11 +149,13 @@ HTML;
         $repository = new CrawledMemoryRepository();
         $url = new Uri('http://example.com/');
         Crawler::create()
-            ->setMaxCrawl(5)
+            ->setClient($this->client)
+            ->setMaxCrawl(3)
             ->setRepository($repository)
             ->startCrawling($url);
-        $this->assertSame(5, $repository->numOfPages());
+        $this->assertSame(3, $repository->numOfPages());
         $this->assertSame($this->html, $repository->all()[0]->html);
+        $this->assertSame($this->html2, $repository->all()[1]->html);
     }
 
     /**
@@ -195,10 +173,12 @@ HTML;
         $page->html = $this->html;
         $repository->add($page);
         Crawler::create()
+            ->setClient($this->client)
             ->setMaxCrawl(2)
             ->setRepository($repository)
             ->startCrawling(new Uri($url));
         $this->assertSame(2, $repository->numOfPages());
+        $this->assertSame($this->html2, $repository->all()[1]->html);
     }
 
     /**
@@ -209,8 +189,7 @@ HTML;
     public function testGetRepository()
     {
         $this->assertTrue(
-            $this->crawler
-                ->getRepository() instanceof CrawledRepositoryInterface
+            $this->crawler->getRepository() instanceof CrawledRepositoryInterface
         );
     }
 
