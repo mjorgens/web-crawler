@@ -78,7 +78,7 @@ class PageRequestTest extends TestCase
      */
     public function testGetPageBadUrl400()
     {
-        $this->mock->append(new ClientException('Not Found', new Request('GET', $this->badUrl)));
+        $this->mock->append(new ClientException('Not Found', new Request('GET', $this->badUrl), new Response()));
         $page = PageRequest::getPage($this->client, new Uri($this->badUrl));
         $this->assertNull($page);
     }
@@ -90,7 +90,7 @@ class PageRequestTest extends TestCase
      */
     public function testGetPageBadUrl500()
     {
-        $this->mock->append(new ServerException('Gateway Timeout', new Request('GET', $this->badUrl)));
+        $this->mock->append(new ServerException('Gateway Timeout', new Request('GET', $this->badUrl), new Response()));
         $page = PageRequest::getPage($this->client, new Uri($this->badUrl));
         $this->assertNull($page);
     }
