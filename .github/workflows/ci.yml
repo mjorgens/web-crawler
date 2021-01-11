@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.operating-system }}
+    strategy:
+      matrix:
+        operating-system: [ 'ubuntu-latest', 'windows-latest', 'macos-latest' ]
+        php-versions: [ '7.2', '7.3', '7.4' ]
+        prefer: [ 'lowest', 'highest' ]
+
+    name: PHP ${{ matrix.php-versions }} ${{ matrix.operating-system }} ${{ matrix.prefer }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --no-check-all --strict
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v1
+        with:
+          dependency-versions: ${{ matrix.prefer }}
+          composer-options: --prefer-dist
+
+      - name: Setup problem matchers for PHPUnit
+        run: echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+      - name: Run test suite
+        run: ./vendor/bin/phpunit
